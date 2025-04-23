@@ -18,7 +18,7 @@ import (
 
 // Public Key ในรูปแบบ PEM (คัดลอกจาก Keycloak)
 var publicKeyPEM = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuAGJz5wltT591SzVfYoEzIWNALD9T1NT1qm7geEzN89AljL8yZv/kDYLqrZ15x86ZooC7qdp86GBmh27v+oLRNdvM96vxXM5Jg58IucbmsWu2G1DdRYL0tkaF/GMm8bXzBzneHKYHZf2eGldLDkJRgCHcxh/CWOdodSsET/y+4J0iF7HSXD9s3RROwGdWUzx+t3BrIGusTsW1VNC0e2VstQTovb/JN5+cU2X4bLp6EE/UVvu4ErSYpydlvUxML0JVEMoHMgLY/DO5PlU+ur+FjhvhftjqRPxnsEU2AYImMeZdBunVUyGDZZRcZCIWKFWF49B5freS0v6/kEjl+1eEwIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqTMFF1ajfIPkV3V3a5jMFUm/iUbc7EWm/N+1EQb+ti63ALiPs2I9qh8TA4SAhujsf/kAhNnbIBiruUmkc9zmARFNqwx42/xU1VtcXvU4qMED1Wr+NdVElL2dadS69K3AUGA6MOGcpMFaEj5dJi9kdYK6E5oOPotKsMeT4Mt6wZG2g727qAF3rRwRk5D0axvkJPzBKywEhk+ucrSa0A/HkB4Z4z0zS06QK0cFI3KTBHsdGwbgHDDH7rOn25SvnkfjfASuMXAZ7P01WE7pgk8E0k6VqV/n8lpthtFUigGS31xg5aJkfK4oNkGT/OshZxMDrN4fgvzra4Lk/eZWnENFSwIDAQAB
 -----END PUBLIC KEY-----`
 
 // Global variable สำหรับเก็บ *rsa.PublicKey ที่แปลงแล้ว
@@ -68,8 +68,32 @@ func main() {
 
 	protected.Use(JWTAuthMiddleware())
 	{
-		protected.GET("/data", handlers.RequestLogMiddleware(), handlers.GetData)
+		// protected.GET("/data", handlers.RequestLogMiddleware(), handlers.GetData)
+		// protected.GET("/data", handlers.GetData)
+		protected.GET("/data", func(c *gin.Context) {
+			username := c.GetString("username")
+			roles := c.GetStringSlice("roles")
+			c.JSON(200, gin.H{
+				"data":     "This is protected data",
+				"username": username,
+				"roles":    roles,
+			})
+		})
 
+		protected.GET("/token", func(c *gin.Context) {
+			tokenRaw := c.GetHeader("Authorization")
+			if tokenRaw == "" {
+				c.JSON(400, gin.H{"error": "Authorization header not found"})
+				return
+			}
+
+			// ตัดคำว่า "Bearer " ออก
+			token := strings.TrimPrefix(tokenRaw, "Bearer ")
+
+			c.JSON(200, gin.H{
+				"token": token,
+			})
+		})
 	}
 
 	r.Run(":8081")
@@ -179,3 +203,115 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// func JWTAuthMiddleware() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		authHeader := c.GetHeader("Authorization")
+// 		fmt.Println("🔍 AUTH HEADER:", authHeader)
+
+// 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+// 			fmt.Println("❌ ไม่พบ Bearer token ใน header")
+// 			c.JSON(401, gin.H{"error": "Unauthorized"})
+// 			c.Abort()
+// 			return
+// 		}
+// 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+// 		fmt.Println("🔐 JWT:", tokenString[:30]+"...") // แสดงแค่บางส่วนกันยาว
+
+// 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+// 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+// 				fmt.Println("❌ Signing method ไม่ถูกต้อง")
+// 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+// 			}
+// 			return rsaPublicKey, nil
+// 		})
+
+// 		if err != nil || !token.Valid {
+// 			fmt.Println("❌ Token ไม่ valid:", err)
+// 			c.JSON(401, gin.H{"error": "Invalid token"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		claims, ok := token.Claims.(jwt.MapClaims)
+// 		if !ok {
+// 			fmt.Println("❌ ดึง claims ไม่ได้")
+// 			c.JSON(401, gin.H{"error": "Invalid token claims"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		fmt.Println("✅ CLAIMS:", claims)
+
+// 		// ตรวจ issuer
+// 		if !claims.VerifyIssuer("http://localhost:8082/realms/auth101", true) {
+// 			fmt.Println("❌ Issuer ไม่ตรง:", claims["iss"])
+// 			c.JSON(401, gin.H{"error": "Invalid token issuer"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		// ตรวจ username
+// 		username, ok := claims["preferred_username"].(string)
+// 		if !ok {
+// 			fmt.Println("❌ ไม่พบ preferred_username ใน claims")
+// 			c.JSON(401, gin.H{"error": "Username not found in token"})
+// 			c.Abort()
+// 			return
+// 		}
+// 		fmt.Println("👤 USER:", username)
+
+// 		// ตรวจ roles
+// 		realmAccess, ok := claims["realm_access"].(map[string]interface{})
+// 		if !ok {
+// 			fmt.Println("❌ realm_access ไม่ถูกต้อง")
+// 			c.JSON(401, gin.H{"error": "Roles not found in token"})
+// 			c.Abort()
+// 			return
+// 		}
+// 		rawRoles, ok := realmAccess["roles"].([]interface{})
+// 		if !ok {
+// 			fmt.Println("❌ ไม่พบ roles array")
+// 			c.JSON(401, gin.H{"error": "No roles found in token"})
+// 			c.Abort()
+// 			return
+// 		}
+// 		var rolesList []string
+// 		for _, r := range rawRoles {
+// 			if roleStr, ok := r.(string); ok {
+// 				rolesList = append(rolesList, roleStr)
+// 			}
+// 		}
+// 		fmt.Println("🛡️ ROLES:", rolesList)
+
+// 		// ตรวจสิทธิ์ Casbin
+// 		resource := c.Request.URL.Path
+// 		action := c.Request.Method
+// 		fmt.Printf("🔒 CHECK PERMISSION: role(s): %v → %s %s\n", rolesList, action, resource)
+
+// 		allowed := false
+// 		for _, role := range rolesList {
+// 			permit, err := enforcer.Enforce(role, resource, action)
+// 			if err != nil {
+// 				fmt.Println("❌ ERROR จาก Casbin:", err)
+// 				c.JSON(500, gin.H{"error": "Error checking permission"})
+// 				c.Abort()
+// 				return
+// 			}
+// 			if permit {
+// 				allowed = true
+// 				break
+// 			}
+// 		}
+// 		if !allowed {
+// 			fmt.Println("🚫 ไม่อนุญาตตาม policy")
+// 			c.JSON(403, gin.H{"error": "Forbidden: Insufficient permissions"})
+// 			c.Abort()
+// 			return
+// 		}
+
+// 		c.Set("username", username)
+// 		c.Set("roles", rolesList)
+// 		c.Next()
+// 	}
+// }

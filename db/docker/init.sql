@@ -1,38 +1,79 @@
--- สร้างตาราง courses
 CREATE TABLE courses (
     course_id SERIAL PRIMARY KEY,
     course_name VARCHAR(255) NOT NULL,
-    description TEXT,
-    thumbnail_url VARCHAR(255),
-    instructor_name VARCHAR(255),
-    profile_url VARCHAR(255),
-    duration VARCHAR(255),
-    price DECIMAL(10,2),
-    detail_url VARCHAR(255),
-    rating DECIMAL(2,1),
-    num_reviews INT,
+    course_desc TEXT,
+    thumbnail_url VARCHAR(255), 
+    course_type VARCHAR(255), 
+    course_instructor VARCHAR(255) NOT NULL, 
+    profile_url VARCHAR(255), 
+    course_price DECIMAL(10,2) NOT NULL, 
+    duration VARCHAR(255), 
+    rating DECIMAL(2,1), 
+    num_reviews INT, 
     enrollment_count INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE courses_url(
+    course_id INT PRIMARY KEY,
+    detail_url VARCHAR(255) UNIQUE,
+    FOREIGN KEY (course_id) REFERENCES courses(course_id)
+);
+
+
+CREATE TABLE affiliates (
+    affiliate_id SERIAL PRIMARY KEY,
+    affiliate_name VARCHAR(255),
+    affiliate_email VARCHAR(255) UNIQUE,
+    affiliate_password VARCHAR(255)
+);
+
+CREATE TABLE affiliate_url (
+    id SERIAL PRIMARY KEY,
+    affiliate_id INT,
+    aff_url VARCHAR(255),
+    click_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    clicks INTEGER DEFAULT 0,
+    parameter TEXT,
+    FOREIGN KEY (affiliate_id) REFERENCES affiliates(affiliate_id)
+);
+
+CREATE TABLE request_logs (
+    id SERIAL PRIMARY KEY,
+    affiliate_id INT,  -- แก้เป็น INT เพื่อให้ตรงกับตาราง affiliates
+    action VARCHAR(255),
+    parameter TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE Click_logs (
+    id SERIAL PRIMARY KEY,
+    affiliate_id INT NOT NULL,  -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
+    course_id INT NOT NULL,     -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
+    click_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    clicks INTEGER DEFAULT 0,
+    FOREIGN KEY (affiliate_id) REFERENCES affiliates(affiliate_id),
+    FOREIGN KEY (course_id) REFERENCES courses(course_id)
+);
+
 -- สร้าง function สำหรับอัพเดท created_at โดยอัตโนมัติ
 CREATE OR REPLACE FUNCTION created_modified_column()
-RETURNS TRIGGER AS $$
-BEGIN
+RETURNS TRIGGER AS $$ 
+BEGIN 
     NEW.created_at = now();
-    RETURN NEW;
+    RETURN NEW; 
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 -- สร้าง function สำหรับอัพเดท updated_at โดยอัตโนมัติ
 CREATE OR REPLACE FUNCTION update_modified_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
+RETURNS TRIGGER AS $$ 
+BEGIN 
+    NEW.updated_at = now(); 
+    RETURN NEW; 
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 -- สร้าง trigger สำหรับอัพเดท updated_at
 CREATE TRIGGER update_courses_modtime
@@ -40,54 +81,42 @@ CREATE TRIGGER update_courses_modtime
     FOR EACH ROW
     EXECUTE FUNCTION update_modified_column();
 
+-- สร้าง trigger สำหรับบันทึกเวลาเมื่อ insert
+CREATE TRIGGER insert_courses_createdtime
+    BEFORE INSERT ON courses
+    FOR EACH ROW
+    EXECUTE FUNCTION created_modified_column();
 
-CREATE TABLE affiliates (
-    affiliate_id SERIAL PRIMARY KEY,
-    affiliate_name VARCHAR(255),
-    affiliate_email VARCHAR(255) UNIQUE,
-    affiliate_password VARCHAR(255),
-    affiliate_url VARCHAR(255),
-    affiliate_api_key VARCHAR(255) UNIQUE
-)
+-- เพิ่มค่า clicks 
+CREATE OR REPLACE FUNCTION increment_clicks()
+RETURNS TRIGGER AS $$ 
+BEGIN
+    -- เพิ่มค่าของ clicks ที่บันทึกในตาราง Click_logs
+    UPDATE Click_logs 
+    SET clicks = clicks + 1
+    WHERE affiliate_id = NEW.affiliate_id 
+    AND course_id = NEW.course_id;
 
-CREATE TABLE request_logs (
-    id SERIAL PRIMARY KEY,
-    affiliate_id VARCHAR(255),
-    action VARCHAR(255),
-    parameter TEXT,
-    timestamp TIMESTAMP
-)
+    -- ถ้าไม่มีแถวที่ตรงกันให้เพิ่มแถวใหม่
+    INSERT INTO Click_logs (affiliate_id, course_id, clicks)
+    SELECT NEW.affiliate_id, NEW.course_id, 1
+    WHERE NOT EXISTS (SELECT 1 FROM Click_logs WHERE affiliate_id = NEW.affiliate_id AND course_id = NEW.course_id);
 
-CREATE TABLE Click_logs (
-    affiliate_id SERIAL PRIMARY KEY,
-    course_id SERIAL ,
-    click_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    clicks INTEGER,
-    FOREIGN KEY (affiliate_id) REFERENCES affiliates(id),
-    FOREIGN KEY (course_id) REFERENCES courses(course_id)
-)
+    -- ส่งคืนค่า NEW เพื่อให้ insert ข้อมูลตามปกติ
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Course_ID         string  `json:"-"`
--- 	Course_Name       string  `json:"-"`
--- 	Course_Desc       string  `json:"-"` // คำอธิบาย
--- 	detail_url        string  `json:"-"`
--- 	thumbnail_url     string  `json:"-"`
--- 	Course_Type       string  `json:"-"`
--- 	Course_Instructor string  `json:"-"`
--- 	profile_url       string  `json:"-"`
--- 	Course_Price      int     `json:"-"`
--- 	duration          int     `json:"-"`
--- 	rating            float64 `json:"-"`
--- 	num_reviews       int     `json:"-"`
--- 	enrollment_count  int     `json:"-"`
--- 	created_at        string  `json:"-"`
--- 	updated_at        string  `json:"-"`
+CREATE TRIGGER update_clicks
+AFTER INSERT ON Click_logs
+FOR EACH ROW
+EXECUTE FUNCTION increment_clicks();
+
 
 -- เพิ่มข้อมูลตัวอย่าง
 INSERT INTO courses (
     course_name, -- ชื่อคอร์ส
-    course_Desc, -- คำอธิบายเกี่ยวกับคอร์ส
-    detail_url, -- ลิงก์ไปยังหน้ารายละเอียดของคอร์ส
+    course_desc, -- คำอธิบายเกี่ยวกับคอร์ส
     thumbnail_url, -- URL ของภาพปกหรือรูปตัวอย่างของคอร์ส
     course_type, --ประเภทของคอร์ส 
     course_instructor, --ชื่อของผู้สอน
@@ -97,10 +126,11 @@ INSERT INTO courses (
     rating, -- คะแนนรีวิวเฉลี่ย
     num_reviews, -- จำนวนรีวิว
     enrollment_count -- จำนวนผู้ลงทะเบียนเรียนแล้ว
-) VALUES (
+) VALUES 
+-- 1
+(
     'Python for Beginners',
     'เรียนรู้พื้นฐานการเขียนโปรแกรมด้วยภาษา Python เหมาะสำหรับผู้เริ่มต้น',
-    'https://example.com/python-beginners',
     'https://example.com/images/python.jpg',
     'Python',
     'Jane Smith',
@@ -111,105 +141,244 @@ INSERT INTO courses (
     1523,
     28000
 ),
-
-('Excel ขั้นเทพสำหรับงานออฟฟิศ', 
- 'ใช้งาน Excel ตั้งแต่พื้นฐานถึงขั้นสูง พร้อมสูตรและเทคนิค', 
- 'https://example.com/excel-master', 
- 'https://example.com/images/excel.jpg',
- 'Excel',
- 'ภัทรพล โพธิ์ศรี', 
- 'https://example.com/instructors/pat', 
- 699.00, 
- '8 ชั่วโมง', 
- 4.6, 
- 875, 
- 12500),
-
-('วาดภาพ Digital Art ด้วย Procreate',
- 'เรียนรู้การวาดภาพบน iPad ด้วยแอป Procreate ตั้งแต่พื้นฐาน',
- 'https://example.com/procreate-course',
- 'https://example.com/images/procreate.jpg',
- 'Art',
- 'Arisa Chen',
- 'https://example.com/instructors/arisa',
- 1200.00,
- '5 ชั่วโมง 30 นาที',
- 4.9,
- 412,
- 5300
+-- 2
+(
+    'Excel ขั้นเทพสำหรับงานออฟฟิศ', 
+    'ใช้งาน Excel ตั้งแต่พื้นฐานถึงขั้นสูง พร้อมสูตรและเทคนิค', 
+    'https://example.com/images/excel.jpg',
+    'Excel',
+    'ภัทรพล โพธิ์ศรี', 
+    'https://example.com/instructors/pat', 
+    699.00, 
+    '8 ชั่วโมง', 
+    4.6, 
+    875, 
+    12500
 ),
-
-('JavaScript Web Development',
- 'เขียนเว็บไซต์แบบ Interactive ด้วย JavaScript',
- 'https://example.com/js-webdev',
- 'https://example.com/images/js.jpg',
- 'JavaScript',
- 'John Doe',
- 'https://example.com/instructors/john',
- 0.00,
- '7 ชั่วโมง',
- 4.7,
- 1399,
- 24000
+-- 3
+(
+    'วาดภาพ Digital Art ด้วย Procreate',
+    'เรียนรู้การวาดภาพบน iPad ด้วยแอป Procreate ตั้งแต่พื้นฐาน',
+    'https://example.com/images/procreate.jpg',
+    'Art',
+    'Arisa Chen',
+    'https://example.com/instructors/arisa',
+    1200.00,
+    '5 ชั่วโมง 30 นาที',
+    4.9,
+    412,
+    5300
 ),
-
-('การจัดการเวลาอย่างมีประสิทธิภาพ',
- 'เรียนรู้เทคนิค Time Management และ Productivity',
- 'https://example.com/time-management',
- 'https://example.com/images/time.jpg',
- 'Management',
- 'นภัสสร ลิ้มวัฒนา',
- 'https://example.com/instructors/napas0',
- 499.00,
- '3 ชั่วโมง',
- 4.5,
- 326,
- 8000
+-- 4
+(
+    'JavaScript Web Development',
+    'เขียนเว็บไซต์แบบ Interactive ด้วย JavaScript',
+    'https://example.com/images/js.jpg',
+    'JavaScript',
+    'John Doe',
+    'https://example.com/instructors/john',
+    0.00,
+    '7 ชั่วโมง',
+    4.7,
+    1399,
+     24000
 ),
-
-('UI/UX Design สำหรับมือใหม่',
- 'เรียนรู้การออกแบบประสบการณ์ผู้ใช้ในแอปและเว็บไซต์',
- 'https://example.com/uiux-design',
- 'https://example.com/images/uiux.jpg',
- 'UX/UI',
- 'Kelvin Wong',
- 'https://example.com/instructors/kelvin',
- 990.00,
- '10 ชั่วโมง',
- 4.8,
- 978,
- 10800
+-- 5
+(
+    'การจัดการเวลาอย่างมีประสิทธิภาพ',
+    'เรียนรู้เทคนิค Time Management และ Productivity',
+    'https://example.com/images/time.jpg',
+    'Management',
+    'นภัสสร ลิ้มวัฒนา',
+    'https://example.com/instructors/napas0',
+    499.00,
+    '3 ชั่วโมง',
+    4.5,
+    326,
+    8000
 ),
-
-('ภาษาอังกฤษสำหรับการทำงาน',
- 'พัฒนาทักษะภาษาอังกฤษในที่ทำงาน เน้นการสนทนา',
- 'https://example.com/business-english',
- 'https://example.com/images/english.jpg',
- 'English',
- 'ครูแพร',
- 'https://example.com/instructors/kru-prae',
- 499.00,
- '4 ชั่วโมง',
- 4.4,
- 610,
- 19400
+-- 6
+(
+    'UI/UX Design สำหรับมือใหม่',
+    'เรียนรู้การออกแบบประสบการณ์ผู้ใช้ในแอปและเว็บไซต์',
+    'https://example.com/images/uiux.jpg',
+    'UX/UI',
+    'Kelvin Wong',
+    'https://example.com/instructors/kelvin',
+    990.00,
+    '10 ชั่วโมง',
+    4.8,
+    978,
+    10800
 ),
-
-('เรียนถ่ายภาพด้วยกล้องมือถือ',
+-- 7
+(
+    'ภาษาอังกฤษสำหรับการทำงาน',
+    'พัฒนาทักษะภาษาอังกฤษในที่ทำงาน เน้นการสนทนา',
+    'https://example.com/images/english.jpg',
+    'English',
+    'ครูแพร',
+    'https://example.com/instructors/kru-prae',
+    499.00,
+    '4 ชั่วโมง',
+    4.4,
+    610,
+    19400
 ),
-;
+-- 8
+(
+    'เรียนถ่ายภาพด้วยกล้องมือถือ',
+    'ใช้สมาร์ตโฟนถ่ายภาพให้ดูมืออาชีพ',
+    'https://example.com/images/photo.jpg',
+    'Photography',
+    'วรากร สุทธิกุล',
+    'https://example.com/instructors/warakorn',
+    450.00,
+    '3 ชั่วโมง 45 นาที',
+    4.6,
+    322,
+    6700
+),
+-- 9
+(
+    'การตลาดออนไลน์ 101',
+    'พื้นฐานการทำตลาดบน Facebook, Google และ IG',
+    'https://example.com/images/marketing.jpg',
+    'Marketing',
+    'ศิรดา แสงทอง',
+    'https://example.com/instructors/sirada',
+    899.00,
+    '6 ชั่วโมง',
+    4.7,
+    801,
+    9400
+),
+-- 10
+(
+    'เรียนทำอาหารไทยแบบต้นตำรับ',
+    'สอนทำเมนูไทยยอดนิยม เช่น ต้มยำ ผัดไทย แกงเขียวหวาน',
+    'https://example.com/images/thai-food.jpg',
+    'Cooking',
+    'เชฟจุฬา',
+    'https://example.com/instructors/chef-jula',
+    1500.00,
+    '6 ชั่วโมง',
+    4.9,
+    550,
+    3900
+);
 
- INSERT INTO affiliates(
-    affiliate_id,
+INSERT INTO courses_url(
+    course_id,
+    detail_url
+) VALUES
+(1, 'https://example.com/python-beginners'),
+(2, 'https://example.com/excel-master'),
+(3, 'https://example.com/procreate-course'),
+(4, 'https://example.com/js-webdev'),
+(5, 'https://example.com/time-management'),
+(6, 'https://example.com/uiux-design'),
+(7, 'https://example.com/business-english'),
+(8, 'https://example.com/mobile-photo'),
+(9, 'https://example.com/online-marketing'),
+(10, 'https://example.com/thai-cooking');
+
+
+INSERT INTO affiliates(
     affiliate_name,
     affiliate_email,
-    affiliate_password,
-    affiliate_url,
-    affiliate_api_key
+    affiliate_password
 )VALUES (
     'affiliate123',
     'affiliate123@example.com',
-    'password123',
-    'https://example.com/affiliate123',
-    'jhksfgolzsdflkhsdfs665sgghdzjrksbdfzxhb2145fsgvsoe8twuhfuijdcvoiaErfqo3ue' -- พิมพ์มั่วนะ
+    'password123'
+),
+(
+    'affiliate_mai', 
+    'mai.marketing@example.com', 
+    'maipass456'
+),
+(
+    'affiliate_sara', 
+    'sara.partners@example.com', 
+    'sarapass789'
+),
+(
+    'affiliate_john', 
+    'john.affiliate@example.com', 
+    'johnpass123'
+),
+(
+    'affiliate_boss', 
+    'boss.click@example.com', 
+    'bosspass321'
 );
+
+INSERT INTO affiliate_url (
+    affiliate_id,
+    aff_url,
+    parameter
+) VALUES 
+-- affiliate123 (id = 1)
+(1, 'https://example.com/python-beginners?ref=affiliate123', 'ref=affiliate123'),
+-- affiliate_mai (id = 2)
+(2, 'https://example.com/online-marketing?ref=affiliate_mai', 'ref=affiliate_mai'),
+-- affiliate_sara (id = 3)
+(3, 'https://example.com/uiux-design?ref=affiliate_sara&campaign=summer25', 'ref=affiliate_sara&campaign=summer25'),
+-- affiliate_john (id = 4)
+(4, 'https://example.com/js-webdev?ref=affiliate_john&utm_source=fb', 'ref=affiliate_john&utm_source=fb'),
+-- affiliate_boss (id = 5)
+(5, 'https://example.com/thai-cooking?ref=affiliate_boss', 'ref=affiliate_boss');
+
+-- affiliate ดูรายละเอียดคอร์ส
+INSERT INTO request_logs (
+    affiliate_id,
+    action,
+    parameter
+) VALUES (
+    1,
+    'view_course',
+    'course_id=3'
+);
+
+-- affiliate คลิกลิงก์
+INSERT INTO request_logs (
+    affiliate_id,
+    action,
+    parameter
+) VALUES (
+    3,
+    'click_link',
+    'course_id=6'
+);
+
+-- affiliate ขอสร้างลิงก์แชร์
+INSERT INTO request_logs (
+    affiliate_id,
+    action,
+    parameter
+) VALUES (
+    5,
+    'generate_affiliate_url',
+    'course_id=4&campaign=spring2025'
+);
+
+
+INSERT INTO Click_logs (
+    affiliate_id,
+    course_id
+) VALUES 
+-- สมมุติ affiliate_id 1 คลิกคอร์ส Python (course_id 1)
+(1, 1),
+
+-- affiliate_mai คลิกคอร์ส online marketing (course_id 9)
+(2, 9),
+
+-- affiliate_sara คลิกคอร์ส UX/UI (course_id 6)
+(3, 6),
+
+-- affiliate_john คลิกคอร์ส JavaScript (course_id 4)
+(4, 4),
+
+-- affiliate_boss คลิกคอร์ส Thai cooking (course_id 10)
+(5, 10);
