@@ -2,21 +2,20 @@ package models
 
 type Courses struct {
 	//ID ใช้ int ไม่ใช่หรอ หรือป่าวอ่ะ
-	Course_ID         string  `json:"-"`
-	Course_Name       string  `json:"-"`
-	Course_Desc       string  `json:"-"` // คำอธิบาย
-	detail_url        string  `json:"-"`
-	thumbnail_url     string  `json:"-"`
-	Course_Type       string  `json:"-"`
-	Course_Instructor string  `json:"-"`
-	profile_url       string  `json:"-"`
-	Course_Price      int     `json:"-"`
-	duration          int     `json:"-"`
-	rating            float64 `json:"-"`
-	num_reviews       int     `json:"-"`
-	enrollment_count  int     `json:"-"`
-	created_at        string  `json:"-"`
-	updated_at        string  `json:"-"`
+	Course_ID         int     `json:"course_id"`   // ใช้ string เพราะว่าเป็น UUID
+	Course_Name       string  `json:"course_name"` // ชื่อคอร์ส
+	Course_Desc       string  `json:"course_desc"` // คำอธิบาย
+	Thumbnail_Url     string  `json:"thumbnail_url"`
+	Course_Type       string  `json:"course_type"`       // ประเภทคอร์ส (เช่น Programming, Design, etc.)
+	Course_Instructor string  `json:"course_instructor"` // ชื่อผู้สอน
+	Profile_Url       string  `json:"profile_url"`
+	Course_Price      float64 `json:"course_price"`     // ราคา
+	Duration          string  `json:"duration"`         // ระยะเวลา
+	Rating            float64 `json:"rating"`           // คะแนนเฉลี่ย (1-5)
+	Num_reviews       int     `json:"num_reviews"`      // จำนวนรีวิว
+	Enrollment_count  int     `json:"enrollment_count"` // จำนวนคนที่ลงทะเบียน
+	Created_at        string  `json:"created_at"`
+	Updated_at        string  `json:"updated_at"`
 }
 
 // course_id SERIAL PRIMARY KEY,

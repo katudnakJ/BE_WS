@@ -3,3 +3,4 @@ p, admin, /api/token, GET
 
 p, affiliate, /api/data, GET
 p, affiliate, /api/token, GET
+p, affiliate, /api/Allcourses, GET

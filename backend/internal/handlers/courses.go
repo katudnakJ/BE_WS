@@ -52,3 +52,38 @@ func GetData(c *gin.Context) {
 	// 	})
 	// })
 }
+
+func GetAllCourses(c *gin.Context) {
+	rows, err := database.DB.Query("select * from courses")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูล courses ได้"})
+		return
+	}
+	defer rows.Close()
+
+	var courses []models.Courses
+
+	for rows.Next() {
+		var course models.Courses
+		err := rows.Scan(&course.Course_ID, &course.Course_Name, &course.Course_Desc, &course.Thumbnail_Url,
+			&course.Course_Type, &course.Course_Instructor, &course.Profile_Url, &course.Course_Price,
+			&course.Duration, &course.Rating, &course.Num_reviews, &course.Enrollment_count,
+			&course.Created_at, &course.Updated_at)
+		if err != nil {
+			log.Println("Scan Error:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "เกิดข้อผิดพลาดในการอ่านข้อมูล"})
+			return
+		}
+		courses = append(courses, course)
+	}
+
+	// ตรวจสอบ error หลังวน loop เสร็จ
+	if err = rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "เกิดข้อผิดพลาดในการอ่านข้อมูล (rows.Err)"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"courses": courses,
+	})
+}

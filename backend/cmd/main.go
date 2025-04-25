@@ -13,12 +13,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 
+	"onlinecourse/database"
+	"onlinecourse/internal/config"
 	"onlinecourse/internal/handlers"
 )
 
 // Public Key ในรูปแบบ PEM (คัดลอกจาก Keycloak)
 var publicKeyPEM = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqTMFF1ajfIPkV3V3a5jMFUm/iUbc7EWm/N+1EQb+ti63ALiPs2I9qh8TA4SAhujsf/kAhNnbIBiruUmkc9zmARFNqwx42/xU1VtcXvU4qMED1Wr+NdVElL2dadS69K3AUGA6MOGcpMFaEj5dJi9kdYK6E5oOPotKsMeT4Mt6wZG2g727qAF3rRwRk5D0axvkJPzBKywEhk+ucrSa0A/HkB4Z4z0zS06QK0cFI3KTBHsdGwbgHDDH7rOn25SvnkfjfASuMXAZ7P01WE7pgk8E0k6VqV/n8lpthtFUigGS31xg5aJkfK4oNkGT/OshZxMDrN4fgvzra4Lk/eZWnENFSwIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzfiOGXueSlSBOU5l/vRG8jIl9kIxffHQZgWFVR1LmdEttq6mZWA+T3Ry8XmR//IHiUKtW8ypiLxrD8Xnpbd02NWfZoiXcTL94rHAZAgEi5Kz136iaD0pjZ54OzUcsjNzF6nV9Qq+VgvGhtHBs8VyCPzgyFGVXRiRje4layFhCtTUeuNFbEoxqN4Ua3xyd8k21726OIOKfHPY6LCCUiaSIjBxp6OdX5fFpnNss5EJABt7C1pF9/Hk3vKPa4ivqLisnQcT9+fJw22NLiCAfjMDtcfJXLWD+8mt3aNv+BYRkx7FFvwdSGR7NDL5e9wbmNitdMqmnsCJ20yKKDm8OFp8hwIDAQAB
 -----END PUBLIC KEY-----`
 
 // Global variable สำหรับเก็บ *rsa.PublicKey ที่แปลงแล้ว
@@ -52,6 +54,11 @@ func init() {
 }
 
 func main() {
+	// Connect to database
+	// _ = godotenv.Load()
+	cfg := config.LoadConfig()
+	database.ConnectDB(cfg)
+
 	r := gin.Default()
 	r.POST("/register", handlers.Register)
 	// เพิ่ม CORS middleware - ใช้ server ของ keycloak
@@ -68,8 +75,10 @@ func main() {
 
 	protected.Use(JWTAuthMiddleware())
 	{
-		// protected.GET("/data", handlers.RequestLogMiddleware(), handlers.GetData)
+		// protected.GET("/dataLog", handlers.RequestLogMiddleware(), handlers.GetData)
 		// protected.GET("/data", handlers.GetData)
+		protected.GET("/Allcourses", handlers.GetAllCourses)
+
 		protected.GET("/data", func(c *gin.Context) {
 			username := c.GetString("username")
 			roles := c.GetStringSlice("roles")
