@@ -13,7 +13,7 @@ type Click_logs struct {
 // log การ request
 
 type RequestLog struct {
-	Affiliate_ID int    `json:"affiliate_id"`
+	Affiliate_ID string `json:"affiliate_id"`
 	Action       string `json:"action"`
 	Parameter    string `json:"parameter"` // คำค้นหา
 	Timestamp    string `json:"timestamp"` // วันและเวลา

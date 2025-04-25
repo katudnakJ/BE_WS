@@ -2,7 +2,7 @@ package models
 
 // ใส่หลัง json ให้เหมือนใน DB
 type Affiliates struct {
-	Affiliate_ID       int    `json:"affiliate_id"`
+	Affiliate_ID       string `json:"affiliate_id"`
 	Affiliate_Name     string `json:"affiliate_name"`
 	Affiliate_Email    string `json:"affiliate_email"`
 	Affiliate_Password string `json:"affiliate_password"`
@@ -10,7 +10,7 @@ type Affiliates struct {
 
 type Affiliate_Url struct {
 	Url_id        int    `json:"url_id"`
-	Affiliate_ID  int    `json:"affiliate_id"`
+	Affiliate_ID  string `json:"affiliate_id"`
 	Affiliate_Url string `json:"affiliate_url"`
 	Clicks        int    `json:"clicks"`
 	Parameter     string `json:"parameter"`

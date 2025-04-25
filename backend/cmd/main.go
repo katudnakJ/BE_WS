@@ -162,6 +162,25 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// ดึง affiliate_id จาก claims (ถ้ามี)
+		// if affiliateID, ok := claims["affiliate_id"].(float64); ok { // JSON ใน JWT มักจะแปลงตัวเลขเป็น float64
+		// 	c.Set("affiliate_id", int(affiliateID))
+		// } else {
+		// 	// หากไม่มีข้อมูล affiliate_id ใน token ให้ใช้ค่าเริ่มต้น
+		// 	c.Set("affiliate_id", 0) // หรือค่าเริ่มต้นอื่นๆ
+		// }
+
+		// ดึง subject ID (user ID) จาก claims
+		subjectID, ok := claims["sub"].(string)
+		if !ok {
+			c.JSON(401, gin.H{"error": "Subject ID not found in token"})
+			c.Abort()
+			return
+		}
+
+		// เซ็ตค่า affiliate_id ใน context เป็นค่า subjectID
+		c.Set("affiliate_id", subjectID)
+
 		// ดึง roles จาก realm_access.roles ซึ่งอาจมีหลาย role
 		realmAccess, ok := claims["realm_access"].(map[string]interface{})
 		if !ok {

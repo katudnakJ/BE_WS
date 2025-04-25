@@ -23,15 +23,17 @@ CREATE TABLE courses_url(
 
 
 CREATE TABLE affiliates (
-    affiliate_id SERIAL PRIMARY KEY,
+    -- affiliate_id SERIAL PRIMARY KEY,
+    id SERIAL ,
+    affiliate_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     affiliate_name VARCHAR(255),
     affiliate_email VARCHAR(255) UNIQUE,
     affiliate_password VARCHAR(255)
 );
 
 CREATE TABLE affiliate_url (
-    id SERIAL PRIMARY KEY,
-    affiliate_id INT,
+    id SERIAL,
+    affiliate_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aff_url VARCHAR(255),
     click_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     clicks INTEGER DEFAULT 0,
@@ -41,7 +43,7 @@ CREATE TABLE affiliate_url (
 
 CREATE TABLE request_logs (
     id SERIAL PRIMARY KEY,
-    affiliate_id INT,  -- แก้เป็น INT เพื่อให้ตรงกับตาราง affiliates
+    affiliate_id UUID,  -- แก้เป็น INT เพื่อให้ตรงกับตาราง affiliates
     action VARCHAR(255),
     parameter TEXT,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -49,7 +51,7 @@ CREATE TABLE request_logs (
 
 CREATE TABLE Click_logs (
     id SERIAL PRIMARY KEY,
-    affiliate_id INT NOT NULL,  -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
+    affiliate_id UUID NOT NULL,  -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
     course_id INT NOT NULL,     -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
     click_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     clicks INTEGER DEFAULT 0,

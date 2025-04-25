@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"onlinecourse/database"
 	"onlinecourse/internal/models"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -54,6 +55,21 @@ func GetData(c *gin.Context) {
 }
 
 func GetAllCourses(c *gin.Context) {
+
+	request := models.RequestLog{
+		Affiliate_ID: c.GetString("affiliate_id"),
+		Action:       "GET api/Allcourses",
+		Parameter:    "No parameter",
+		Timestamp:    time.Now().Format(time.RFC3339),
+	}
+
+	query := `INSERT INTO request_logs (affiliate_id, action, parameter, timestamp) VALUES ($1, $2, $3, $4)`
+
+	_, err := database.DB.Exec(query, request.Affiliate_ID, request.Action, request.Parameter, request.Timestamp)
+	if err != nil {
+		log.Println("Error inserting request log:", err)
+	}
+
 	rows, err := database.DB.Query("select * from courses")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูล courses ได้"})
